@@ -1,0 +1,19 @@
+[Unit]
+Description=OpenClaw Pixoo-64 Activity Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust these to match your setup
+ExecStart=/usr/bin/python3 -u %h/clawd/projects/openclaw-pixoo/activity_monitor.py \
+    --name RUNE \
+    --color "#FF3030" \
+    --ip 192.168.178.190 \
+    --brightness 80
+Restart=on-failure
+RestartSec=10
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
