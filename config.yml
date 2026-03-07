@@ -1,0 +1,29 @@
+# OpenClaw-Pixoo Configuration
+# Each agent host has its own copy with different agent settings
+
+pixoo:
+  ip: "192.168.178.190"
+  port: 80
+  brightness: 80
+
+agent:
+  name: "RUNE"
+  color: "#FF3030"        # Red for Rune
+  # name: "COLOSSUS"
+  # color: "#30FF30"      # Green for Colossus
+
+display:
+  fps: 2                   # Max frames per second to push
+  idle_timeout: 30          # Seconds before dimming to idle
+  activity_decay: 5         # Seconds before an activity indicator fades
+
+# OpenClaw log monitoring
+monitor:
+  log_dir: "~/.openclaw/logs"
+  # Patterns to detect activity types
+  patterns:
+    thinking: ["Generating response", "model response"]
+    tool: ["Tool call:", "exec", "Read", "Write", "Edit"]
+    web: ["web_search", "web_fetch"]
+    cron: ["HEARTBEAT", "cron", "Scheduled"]
+    coding: ["file_path", "npm run", "git commit"]
