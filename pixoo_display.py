@@ -263,6 +263,7 @@ class Stats:
 class AgentState:
     name: str = "RUNE"
     color: Color = field(default_factory=lambda: Color(255, 50, 50))
+    header_bg: Optional[Color] = None   # Header bar background; None = auto-derive from color
     activities: dict = field(default_factory=lambda: {a: False for a in ACTIVITIES})
     stats: Stats = field(default_factory=Stats)
     pulse_history: list = field(default_factory=lambda: [0] * WIDTH)
@@ -367,10 +368,11 @@ class FrameRenderer:
 
     def draw_title_bar(self, state: AgentState):
         agent_color = state.color
-        dark = agent_color.dim(0.25)
-        self.draw_rect(0, TITLE_Y, WIDTH - 1, TITLE_Y + TITLE_H - 1, dark)
-        self.draw_hline(TITLE_Y, agent_color.dim(0.5))
-        self.draw_hline(TITLE_Y + TITLE_H - 1, agent_color.dim(0.5))
+        bg = state.header_bg if state.header_bg else agent_color.dim(0.25)
+        border = state.header_bg.bright(1.5) if state.header_bg else agent_color.dim(0.5)
+        self.draw_rect(0, TITLE_Y, WIDTH - 1, TITLE_Y + TITLE_H - 1, bg)
+        self.draw_hline(TITLE_Y, border)
+        self.draw_hline(TITLE_Y + TITLE_H - 1, border)
         tw = self.text_width_4x5(state.name)
         sx = (WIDTH - tw) // 2
         self.draw_text_4x5(state.name, sx, TITLE_Y + 2, WHITE)
@@ -633,6 +635,7 @@ def demo():
     ip = sys.argv[1] if len(sys.argv) > 1 else "192.168.178.190"
     agent_name = sys.argv[2] if len(sys.argv) > 2 else "RUNE"
     agent_hex = sys.argv[3] if len(sys.argv) > 3 else "#FF3030"
+    header_bg_hex = sys.argv[4] if len(sys.argv) > 4 else ""
 
     print(f"[pixoo] Agent: {agent_name} ({agent_hex})")
 
@@ -643,7 +646,8 @@ def demo():
     stats = fetch_openclaw_stats()
     print(f"[pixoo] Stats: model={stats.model_name}, ctx={stats.context_percent}%, tok={stats.total_tokens_k}K")
 
-    state = AgentState(name=agent_name, color=Color.from_hex(agent_hex), stats=stats)
+    header_bg = Color.from_hex(header_bg_hex) if header_bg_hex else None
+    state = AgentState(name=agent_name, color=Color.from_hex(agent_hex), header_bg=header_bg, stats=stats)
 
     # Seed some pulse history
     for i in range(0, WIDTH, 3):

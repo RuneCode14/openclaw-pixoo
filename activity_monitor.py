@@ -21,6 +21,12 @@ import signal
 import argparse
 from pathlib import Path
 
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
 from pixoo_display import (
     PixooClient, FrameRenderer, AgentState, Stats, Color,
     ACTIVITIES, fetch_openclaw_stats
@@ -147,32 +153,80 @@ class LogWatcher:
 
 # ── Main Loop ────────────────────────────────────────────────
 
+def load_config(config_path: str = None) -> dict:
+    """Load config.yml, returning defaults if not found or yaml unavailable."""
+    defaults = {
+        'pixoo': {'ip': '192.168.178.190', 'port': 80, 'brightness': 80},
+        'agent': {'name': 'RUNE', 'color': '#FF3030', 'header_bg': ''},
+        'display': {'fps': 2, 'idle_timeout': 30, 'activity_decay': 5},
+        'monitor': {'log_dir': '~/.openclaw/agents/main/sessions'},
+    }
+    if not HAS_YAML:
+        return defaults
+
+    # Search paths: explicit arg, script dir, cwd
+    search_paths = []
+    if config_path:
+        search_paths.append(config_path)
+    script_dir = Path(__file__).parent
+    search_paths += [script_dir / 'config.yml', Path('config.yml')]
+
+    for p in search_paths:
+        p = Path(p)
+        if p.is_file():
+            try:
+                with open(p) as f:
+                    cfg = yaml.safe_load(f) or {}
+                # Merge with defaults
+                for section in defaults:
+                    if section in cfg:
+                        defaults[section].update(cfg[section])
+                print(f"[config] Loaded {p}")
+                return defaults
+            except Exception as e:
+                print(f"[config] Error reading {p}: {e}")
+
+    return defaults
+
+
 def main():
     parser = argparse.ArgumentParser(description='OpenClaw Pixoo Activity Monitor')
-    parser.add_argument('--ip', default='192.168.178.190', help='Pixoo IP address')
-    parser.add_argument('--name', default='RUNE', help='Agent name')
-    parser.add_argument('--color', default='#FF3030', help='Agent color (hex)')
-    parser.add_argument('--log-dir', default='~/.openclaw/agents/main/sessions',
-                        help='OpenClaw session log directory')
+    parser.add_argument('--config', default=None, help='Path to config.yml')
+    parser.add_argument('--ip', default=None, help='Pixoo IP address')
+    parser.add_argument('--name', default=None, help='Agent name')
+    parser.add_argument('--color', default=None, help='Agent color (hex)')
+    parser.add_argument('--header-bg', default=None, help='Header bar background color (hex)')
+    parser.add_argument('--log-dir', default=None, help='OpenClaw session log directory')
     parser.add_argument('--interval', type=float, default=1.0, help='Update interval (seconds)')
-    parser.add_argument('--brightness', type=int, default=80, help='Display brightness (0-100)')
+    parser.add_argument('--brightness', type=int, default=None, help='Display brightness (0-100)')
     parser.add_argument('--stats-interval', type=int, default=30,
                         help='How often to refresh stats from OpenClaw (seconds)')
     parser.add_argument('--demo', action='store_true', help='Run demo mode instead')
     args = parser.parse_args()
+
+    # Load config.yml, then let CLI args override
+    cfg = load_config(args.config)
+    args.ip = args.ip or cfg['pixoo']['ip']
+    args.name = args.name or cfg['agent']['name']
+    args.color = args.color or cfg['agent']['color']
+    args.header_bg = args.header_bg or cfg['agent'].get('header_bg', '')
+    args.log_dir = args.log_dir or cfg['monitor']['log_dir']
+    args.brightness = args.brightness if args.brightness is not None else cfg['pixoo']['brightness']
 
     if args.demo:
         from pixoo_display import demo
         demo()
         return
 
+    hdr_display = args.header_bg if args.header_bg else "(auto)"
     print(f"╔════════════════════════════════════════╗")
     print(f"║  OpenClaw-Pixoo Activity Monitor       ║")
     print(f"╠════════════════════════════════════════╣")
-    print(f"║  Agent:  {args.name:<30}║")
-    print(f"║  Color:  {args.color:<30}║")
-    print(f"║  Pixoo:  {args.ip:<30}║")
-    print(f"║  Logs:   {args.log_dir:<30}║")
+    print(f"║  Agent:    {args.name:<28}║")
+    print(f"║  Color:    {args.color:<28}║")
+    print(f"║  Header:   {hdr_display:<28}║")
+    print(f"║  Pixoo:    {args.ip:<28}║")
+    print(f"║  Logs:     {args.log_dir:<28}║")
     print(f"╚════════════════════════════════════════╝")
 
     # Initialize
@@ -187,9 +241,11 @@ def main():
     stats = fetch_openclaw_stats()
     print(f"[pixoo] Stats: model={stats.model_name}, ctx={stats.context_percent}%, tok={stats.total_tokens_k}K")
 
+    header_bg = Color.from_hex(args.header_bg) if args.header_bg else None
     state = AgentState(
         name=args.name,
         color=Color.from_hex(args.color),
+        header_bg=header_bg,
         stats=stats,
     )
 

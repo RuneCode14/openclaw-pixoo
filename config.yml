@@ -8,9 +8,11 @@ pixoo:
 
 agent:
   name: "RUNE"
-  color: "#FF3030"        # Red for Rune
+  color: "#FF3030"           # Agent accent color (icons, pulse, separators)
+  header_bg: ""              # Header bar background color (hex). Leave empty to auto-derive from agent color.
   # name: "COLOSSUS"
-  # color: "#30FF30"      # Green for Colossus
+  # color: "#30FF30"        # Green for Colossus
+  # header_bg: "#003300"    # Dark green header
 
 display:
   fps: 2                   # Max frames per second to push
