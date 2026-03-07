@@ -214,6 +214,8 @@ def main():
     args.brightness = args.brightness if args.brightness is not None else cfg['pixoo']['brightness']
 
     if args.demo:
+        import sys
+        sys.argv = ['pixoo_display.py', args.ip, args.name, args.color]
         from pixoo_display import demo
         demo()
         return
