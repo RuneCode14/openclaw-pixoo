@@ -201,6 +201,8 @@ def main():
     parser.add_argument('--brightness', type=int, default=None, help='Display brightness (0-100)')
     parser.add_argument('--stats-interval', type=int, default=30,
                         help='How often to refresh stats from OpenClaw (seconds)')
+    parser.add_argument('--idle-timeout', type=int, default=None,
+                        help='Stop updating display after N minutes of inactivity (0=never)')
     parser.add_argument('--demo', action='store_true', help='Run demo mode instead')
     args = parser.parse_args()
 
@@ -212,6 +214,8 @@ def main():
     args.header_bg = args.header_bg or cfg['agent'].get('header_bg', '')
     args.log_dir = args.log_dir or cfg['monitor']['log_dir']
     args.brightness = args.brightness if args.brightness is not None else cfg['pixoo']['brightness']
+    if args.idle_timeout is None:
+        args.idle_timeout = cfg['display'].get('idle_timeout_minutes', 10)
 
     if args.demo:
         from pixoo_display import demo
@@ -226,7 +230,9 @@ def main():
     print(f"║  Color:    {args.color:<28}║")
     print(f"║  Header:   {hdr_display:<28}║")
     print(f"║  Pixoo:    {args.ip:<28}║")
+    idle_display = f"{args.idle_timeout}min" if args.idle_timeout > 0 else "off"
     print(f"║  Logs:     {args.log_dir:<28}║")
+    print(f"║  Idle off: {idle_display:<28}║")
     print(f"╚════════════════════════════════════════╝")
 
     # Initialize
@@ -261,17 +267,48 @@ def main():
     print("[pixoo] Monitoring started. Ctrl+C to stop.")
     last_state_key = None
     last_stats_refresh = time.time()
+    last_activity_time = time.time()
+    display_sleeping = False
+    idle_timeout_secs = args.idle_timeout * 60 if args.idle_timeout > 0 else 0
     frames_sent = 0
 
     while running:
         # Check for activity
         activities = watcher.get_current_state()
         state.activities = activities
+        now = time.time()
+        is_active = any(activities.values())
+
+        # Track last activity time
+        if is_active:
+            last_activity_time = now
+            if display_sleeping:
+                # Wake up — re-init display and resume updates
+                print(f"[pixoo] Activity detected, waking display")
+                client.initialize(brightness=args.brightness)
+                display_sleeping = False
+
+        # Check idle timeout
+        if idle_timeout_secs > 0 and not display_sleeping:
+            idle_duration = now - last_activity_time
+            if idle_duration >= idle_timeout_secs:
+                # Send one final idle frame, then stop updating
+                print(f"[pixoo] No activity for {args.idle_timeout}min, display sleeping")
+                state.activities = {a: False for a in ACTIVITIES}
+                frame_data = renderer.render_frame(state)
+                client.send_frame(frame_data)
+                display_sleeping = True
+
+        if display_sleeping:
+            # Sleep longer when idle — just check for new activity every 5s
+            time.sleep(5)
+            continue
+
         state.pulse_offset += 1
         state.frame_count += 1
 
         # Add pulse when active
-        if state.any_active():
+        if is_active:
             active_count = sum(1 for v in activities.values() if v)
             height = min(7, active_count * 2 + random.randint(0, 2))
             state.add_pulse(height)
@@ -279,7 +316,6 @@ def main():
         state.decay_pulse()
 
         # Refresh stats periodically
-        now = time.time()
         if now - last_stats_refresh > args.stats_interval:
             try:
                 state.stats = fetch_openclaw_stats()

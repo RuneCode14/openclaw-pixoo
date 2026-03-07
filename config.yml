@@ -18,6 +18,7 @@ display:
   fps: 2                   # Max frames per second to push
   idle_timeout: 30          # Seconds before dimming to idle
   activity_decay: 5         # Seconds before an activity indicator fades
+  idle_timeout_minutes: 10  # Stop updating display after N minutes of inactivity (0=never)
 
 # OpenClaw log monitoring
 monitor:
