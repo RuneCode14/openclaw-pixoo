@@ -218,6 +218,8 @@ def main():
         args.idle_timeout = cfg['display'].get('idle_timeout_minutes', 10)
 
     if args.demo:
+        import sys
+        sys.argv = ['pixoo_display.py', args.ip, args.name, args.color]
         from pixoo_display import demo
         demo()
         return

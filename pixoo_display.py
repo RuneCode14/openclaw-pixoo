@@ -601,8 +601,8 @@ def fetch_openclaw_stats() -> Stats:
             main = recent[0]
 
         if main:
-            ctx_pct = main.get('percentUsed', 0)
-            total_tokens = main.get('totalTokens', 0)
+            ctx_pct = main.get('percentUsed') or 0
+            total_tokens = main.get('totalTokens') or 0
         else:
             ctx_pct = 0
             total_tokens = 0
